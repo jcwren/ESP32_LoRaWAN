@@ -30,7 +30,7 @@
 #include "delay.h"
 #include "sx1276-board.h"
 #include "debug.h"
-extern  void lora_printf(const char *format, ...);
+extern  int xprintf(const char *format, ...);
 
 
 /*!
@@ -1201,11 +1201,11 @@ void SX1276SetOpMode( uint8_t opMode )
 	/*
 	if(opMode==RF_OPMODE_RECEIVER||opMode==RFLR_OPMODE_RECEIVER_SINGLE)
 	{
-		lora_printf("Rx\r\n");
+		xprintf("Rx\r\n");
 	}
 	if(opMode==RF_OPMODE_TRANSMITTER)
 	{
-		lora_printf("Tx\r\n");
+		xprintf("Tx\r\n");
 	}
 	*/
     SX1276Write( REG_OPMODE, ( SX1276Read( REG_OPMODE ) & RF_OPMODE_MASK ) | opMode );
@@ -1400,7 +1400,7 @@ void SX1276OnTimeoutIrq( void )
 
 void SX1276OnDio0Irq( void )
 {
-	//lora_printf("0\r\n");
+	//xprintf("0\r\n");
     volatile uint8_t irqFlags = 0;
     switch( SX1276.Settings.State )
     {
@@ -1605,7 +1605,7 @@ void SX1276OnDio0Irq( void )
 
 void SX1276OnDio1Irq( void )
 {
-	//lora_printf("1\r\n");
+	//xprintf("1\r\n");
     switch( SX1276.Settings.State )
     {
         case RF_RX_RUNNING:

@@ -78,7 +78,7 @@ bool SendFrame( void )
 	{
 		if( isTxConfirmed == true )
 		{
-			lora_printf("confirmed uplink sending ...\r\n");
+			xprintf("Confirmed uplink sending...\n");
 			mcpsReq.Type = MCPS_CONFIRMED;
 			mcpsReq.Req.Confirmed.fPort = appPort;
 			mcpsReq.Req.Confirmed.fBuffer = appData;
@@ -88,7 +88,7 @@ bool SendFrame( void )
 		}
 		else
 		{
-			lora_printf("unconfirmed uplink sending ...\r\n");
+			xprintf("Unconfirmed uplink sending...\n");
 			mcpsReq.Type = MCPS_UNCONFIRMED;
 			mcpsReq.Req.Unconfirmed.fPort = appPort;
 			mcpsReq.Req.Unconfirmed.fBuffer = appData;
@@ -193,14 +193,14 @@ uint16_t GetBatteryVoltage(void)
 
 void __attribute__((weak)) downLinkDataHandle(McpsIndication_t *mcpsIndication)
 {
-	lora_printf("+REV DATA:%s,RXSIZE %d,PORT %d\r\n",mcpsIndication->RxSlot?"RXWIN2":"RXWIN1",mcpsIndication->BufferSize,mcpsIndication->Port);
-	lora_printf("+REV DATA:");
+	xprintf("+REV DATA:%s,RXSIZE %d,PORT %d\r\n",mcpsIndication->RxSlot?"RXWIN2":"RXWIN1",mcpsIndication->BufferSize,mcpsIndication->Port);
+	xprintf("+REV DATA:");
 
 	for(uint8_t i=0;i<mcpsIndication->BufferSize;i++)
 	{
-		lora_printf("%02X",mcpsIndication->Buffer[i]);
+		xprintf("%02X",mcpsIndication->Buffer[i]);
 	}
-	lora_printf("\r\n");
+	xprintf("\r\n");
 }
 
 /*!
@@ -218,7 +218,7 @@ static void McpsIndication( McpsIndication_t *mcpsIndication )
 	}
 	ifDisplayAck=1;
 	ackrssi=mcpsIndication->Rssi;
-	lora_printf( "receive data: rssi = %d, snr = %d, datarate = %d\r\n", mcpsIndication->Rssi, (int)mcpsIndication->Snr,(int)mcpsIndication->RxDatarate);
+	xprintf( "Receive data: rssi = %d, snr = %d, datarate = %d\n", mcpsIndication->Rssi, (int)mcpsIndication->Snr,(int)mcpsIndication->RxDatarate);
 	delay(10);
 	switch( mcpsIndication->McpsIndication )
 	{
@@ -278,7 +278,7 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 			if( mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK )
 			{
 				ifDisplayJoined++;
-				lora_printf("joined\r\n");
+				xprintf("Joined\n");
 
 				// Status is OK, node has joined the network
 				deviceState = DEVICE_STATE_SEND;
@@ -286,7 +286,7 @@ static void MlmeConfirm( MlmeConfirm_t *mlmeConfirm )
 			else
 			{
 				uint32_t rejoin_delay = 30000;
-				lora_printf("join failed, rejoin at %d ms later\r\n",rejoin_delay);
+				xprintf("Join failed, rejoin in %dms\n", rejoin_delay);
 				TimerSetValue( &TxNextPacketTimer, rejoin_delay );
 				TimerStart( &TxNextPacketTimer );
 			}
@@ -381,89 +381,95 @@ void LoRaWanClass::generateDeveuiByChipID()
 
 void LoRaWanClass::init(DeviceClass_t classMode,LoRaMacRegion_t region)
 {
-	if(classMode == CLASS_B)
-	{
-		Serial.println("Class B is not supported, switch to Class A");
-		classMode = CLASS_A;
-	}
+  if (classMode == CLASS_B)
+  {
+    xprintf ("Class B is not supported, switch to Class A\n");
+    classMode = CLASS_A;
+  }
 
-	MibRequestConfirm_t mibReq;
+  MibRequestConfirm_t mibReq;
 
-	LoRaMacPrimitive.MacMcpsConfirm = McpsConfirm;
-	LoRaMacPrimitive.MacMcpsIndication = McpsIndication;
-	LoRaMacPrimitive.MacMlmeConfirm = MlmeConfirm;
-	LoRaMacPrimitive.MacMlmeIndication = MlmeIndication;
-	LoRaMacCallback.GetBatteryLevel = BoardGetBatteryLevel;
-	LoRaMacCallback.GetTemperatureLevel = NULL;
-	LoRaMacInitialization( &LoRaMacPrimitive, &LoRaMacCallback,region);
-	TimerStop( &TxNextPacketTimer );
-	TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
+  LoRaMacPrimitive.MacMcpsConfirm = McpsConfirm;
+  LoRaMacPrimitive.MacMcpsIndication = McpsIndication;
+  LoRaMacPrimitive.MacMlmeConfirm = MlmeConfirm;
+  LoRaMacPrimitive.MacMlmeIndication = MlmeIndication;
+  LoRaMacCallback.GetBatteryLevel = BoardGetBatteryLevel;
+  LoRaMacCallback.GetTemperatureLevel = NULL;
+  LoRaMacInitialization( &LoRaMacPrimitive, &LoRaMacCallback,region);
+  TimerStop( &TxNextPacketTimer );
+  TimerInit( &TxNextPacketTimer, OnTxNextPacketTimerEvent );
 
-    if(IsLoRaMacNetworkJoined==false)
+  if(IsLoRaMacNetworkJoined==false)
+  {
+    char buffer [128];
+    size_t l = 0;
+
+    mibReq.Type = MIB_ADR;
+    mibReq.Param.AdrEnable = loraWanAdr;
+    LoRaMacMibSetRequestConfirm( &mibReq );
+
+    mibReq.Type = MIB_PUBLIC_NETWORK;
+    mibReq.Param.EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK;
+    LoRaMacMibSetRequestConfirm( &mibReq );
+
+    mibReq.Type = MIB_DEVICE_CLASS;
+    mibReq.Param.Class = classMode;
+    LoRaMacMibSetRequestConfirm( &mibReq );
+
+    l += snprintf (&buffer [l], sizeof (buffer) - l, "DevEUI=");
+
+    for(int i = 0;i<8;i++)
+      l += snprintf (&buffer [l], sizeof (buffer) - l, "%02X", DevEui [i]);	
+    
+    xprintf ("%s\n", buffer);
+
+    l = 0;
+    l += snprintf (&buffer [l], sizeof (buffer) - l, "LoRaWAN ");
+
+    switch (region)
     {
-	  mibReq.Type = MIB_ADR;
-	  mibReq.Param.AdrEnable = loraWanAdr;
-	  LoRaMacMibSetRequestConfirm( &mibReq );
-
-	  mibReq.Type = MIB_PUBLIC_NETWORK;
-	  mibReq.Param.EnablePublicNetwork = LORAWAN_PUBLIC_NETWORK;
-	  LoRaMacMibSetRequestConfirm( &mibReq );
-
-      mibReq.Type = MIB_DEVICE_CLASS;
-      mibReq.Param.Class = classMode;
-      LoRaMacMibSetRequestConfirm( &mibReq );
-
-	   Serial.printf("\nDevEui=");
-	   for(int i = 0;i<8;i++)
-	   {
-			Serial.printf("%02X",DevEui[i]);	
-	   }
-  	  Serial.print("\r\nLoRaWAN ");
-  	  switch(region)
-  	  {
-  	  	  case LORAMAC_REGION_AS923:
-  	  		Serial.print("AS923");
-  	  		break;
-  	  	  case LORAMAC_REGION_AU915:
-  	  		Serial.print("AU915");
-  	  		break;
-  	  	  case LORAMAC_REGION_CN470:
-  	  		Serial.print("CN470");
-  	  		break;
-  	  	  case LORAMAC_REGION_CN779:
-  	  		Serial.print("CN779");
-  	  		break;
-  	  	  case LORAMAC_REGION_EU433:
-  	  		Serial.print("EU433");
-  	  		break;
-  	  	  case LORAMAC_REGION_EU868:
-  	  		Serial.print("EU868");
-  	  		break;
-  	  	  case LORAMAC_REGION_KR920:
-  	  		Serial.print("KR920");
-  	  		break;
-  	  	  case LORAMAC_REGION_IN865:
-  	  		Serial.print("IN865");
-  	  		break;
-  	  	  case LORAMAC_REGION_US915:
-  	  		Serial.print("US915");
-			break;
-		  case LORAMAC_REGION_US915_HYBRID:
-			Serial.print("US915_HYBRID");
-			break;
-		  case LORAMAC_REGION_LA915:
-			Serial.print("LA915");
-			break;
-  	  }
-  	  Serial.printf(" Class %X start!\r\n\r\n",loraWanClass+10);
-
-  	  lwan_dev_params_update();
-  	  deviceState = DEVICE_STATE_JOIN;
+      case LORAMAC_REGION_AS923:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "AS923");
+        break;
+      case LORAMAC_REGION_AU915:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "AU915");
+        break;
+      case LORAMAC_REGION_CN470:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "CN470");
+        break;
+      case LORAMAC_REGION_CN779:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "CN779");
+        break;
+      case LORAMAC_REGION_EU433:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "EU433");
+        break;
+      case LORAMAC_REGION_EU868:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "EU868");
+        break;
+      case LORAMAC_REGION_KR920:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "KR920");
+        break;
+      case LORAMAC_REGION_IN865:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "IN876");
+        break;
+      case LORAMAC_REGION_US915:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "US915");
+        break;
+      case LORAMAC_REGION_US915_HYBRID:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "US915_HYBRID");
+        break;
+      case LORAMAC_REGION_LA915:
+        l += snprintf (&buffer [l], sizeof (buffer) - l, "LA915");
+        break;
     }
-    else
-    {
-  	  deviceState = DEVICE_STATE_SEND;
-    }
+
+    xprintf ("%s, Class %X start!\n", buffer, loraWanClass + 10);
+
+    lwan_dev_params_update ();
+    deviceState = DEVICE_STATE_JOIN;
+  }
+  else
+    deviceState = DEVICE_STATE_SEND;
 }
 
 
@@ -471,7 +477,7 @@ void LoRaWanClass::join()
 {
 	if( overTheAirActivation == true )
 	{
-		Serial.println("joining...");
+		xprintf ("Joining...\n");
 		MlmeReq_t mlmeReq;
 
 		mlmeReq.Type = MLME_JOIN;

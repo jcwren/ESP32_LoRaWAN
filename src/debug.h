@@ -71,7 +71,7 @@ typedef enum LOG_LEVEL_E {
 extern "C" {
 #endif
 
-extern void lora_printf(const char *format, ...);
+extern int xprintf(const char *format, ...);
 
 #ifdef __cplusplus
 }
@@ -86,10 +86,10 @@ extern void lora_printf(const char *format, ...);
 #define DBG_PRINTF_CRITICAL(p)
 
 #if LoRaWAN_DEBUG_LEVEL >= 2
-	#define DBG_PRINTF(format, ...)    lora_printf(format, ##__VA_ARGS__)
-	#define DIO_PRINTF(format, ...)    lora_printf(format, ##__VA_ARGS__)
+	#define DBG_PRINTF(format, ...)    xprintf(format, ##__VA_ARGS__)
+	#define DIO_PRINTF(format, ...)    xprintf(format, ##__VA_ARGS__)
 #elif LoRaWAN_DEBUG_LEVEL == 1
-	#define DBG_PRINTF(format, ...)    lora_printf(format, ##__VA_ARGS__)
+	#define DBG_PRINTF(format, ...)    xprintf(format, ##__VA_ARGS__)
 	#define DIO_PRINTF(format, ...)
 #else
 	#define DBG_PRINTF(format, ...)		do {}while(0)

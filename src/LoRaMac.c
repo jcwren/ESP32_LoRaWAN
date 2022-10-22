@@ -28,7 +28,7 @@ Maintainer: Miguel Luis ( Semtech ), Gregory Cristian ( Semtech ) and Daniel Jae
 #include "LoRaMacConfirmQueue.h"
 #include "region/Region.h"
 
-extern  void lora_printf(const char *format, ...);
+extern  int xprintf(const char *format, ...);
 /*!
  * Maximum PHY layer payload size
  */
@@ -790,7 +790,7 @@ void OnRadioRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
 
     Radio.Sleep( );
     TimerStop( &RxWindowTimer2 );
-    
+
 
 
     macHdr.Value = payload[pktHeaderLen++];
@@ -975,7 +975,7 @@ void OnRadioRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
                     curMulticastParams->DownLinkCounter = downLinkCounter;
                 } else {
                     if ( macHdr.Bits.MType == FRAME_TYPE_DATA_CONFIRMED_DOWN ) {
-                        SrvAckRequested = true; 
+                        SrvAckRequested = true;
                         McpsIndication.McpsIndication = MCPS_CONFIRMED;
 
                         if ( ( DownLinkCounter == downLinkCounter ) &&
@@ -1225,7 +1225,7 @@ static void OnRadioRxTimeout( void )
 
 static void OnMacStateCheckTimerEvent( void )
 {
-//	lora_printf("OnMacStateCheckTimerEvent\r\n");
+//	xprintf("OnMacStateCheckTimerEvent\r\n");
     GetPhyParams_t getPhy;
     PhyParam_t phyParam;
     bool noTx = false;
@@ -1466,7 +1466,7 @@ static void OnRxWindow1TimerEvent( void )
     if ( LoRaMacDeviceClass == CLASS_C ) {
         Radio.Standby( );
     }
-	
+
     RegionRxConfig( LoRaMacRegion, &RxWindow1Config, ( int8_t * )&McpsIndication.RxDatarate );
     //printf("w1 dr:%d\r\n",McpsIndication.RxDatarate);
     RxWindowSetup( RxWindow1Config.RxContinuous, LoRaMacParams.MaxRxWindow );
@@ -1894,7 +1894,7 @@ static void ProcessMacCommands( uint8_t *payload, uint8_t macIndex, uint8_t comm
                     //SaveDr();
                     LoRaMacParams.ChannelsTxPower = linkAdrTxPower;
                     LoRaMacParams.ChannelsNbRep = linkAdrNbRep;
-                    //lora_printf("ChannelsDatarate:%d ChannelsTxPower:%d,ChannelsNbRep:%d\r\n",LoRaMacParams.ChannelsDatarate,LoRaMacParams.ChannelsTxPower,LoRaMacParams.ChannelsNbRep);
+                    //xprintf("ChannelsDatarate:%d ChannelsTxPower:%d,ChannelsNbRep:%d\r\n",LoRaMacParams.ChannelsDatarate,LoRaMacParams.ChannelsTxPower,LoRaMacParams.ChannelsNbRep);
                 }
 
                 // Add the answers to the buffer
@@ -2329,7 +2329,7 @@ LoRaMacStatus_t PrepareFrame( LoRaMacHeader_t *macHdr, LoRaMacFrameCtrl_t *fCtrl
                 if ((pktHeaderLen + LoRaMacTxPayloadLen) > (LORAMAC_PHY_MAXPAYLOAD - 4))  {
                     LoRaMacTxPayloadLen = LORAMAC_PHY_MAXPAYLOAD - 4 - pktHeaderLen;
                 }
-    
+
                 if ( framePort == 0 ) {
                     // Reset buffer index as the mac commands are being sent on port 0
                     MacCommandsBufferIndex = 0;

@@ -48,7 +48,7 @@ extern bool factory_test;
 #ifdef __cplusplus
 extern "C" void write0(uint16_t address, uint8_t value);
 extern "C" uint8_t read0(uint16_t address);
-extern "C" void lora_printf(const char *format, ...);
+extern "C" int xprintf(const char *format, ...);
 extern "C" void writefifo(uint16_t address, uint8_t *buffer, uint8_t size);
 extern "C" void readfifo(uint16_t address, uint8_t *buffer, uint8_t size);
 extern "C" uint64_t timercheck();
