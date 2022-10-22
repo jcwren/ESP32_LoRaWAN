@@ -17,29 +17,28 @@
 
 enum eDeviceState
 {
-    DEVICE_STATE_INIT,
-    DEVICE_STATE_JOIN,
-    DEVICE_STATE_SEND,
-    DEVICE_STATE_CYCLE,
-    DEVICE_STATE_SLEEP
+  DEVICE_STATE_INIT,
+  DEVICE_STATE_JOIN,
+  DEVICE_STATE_SEND,
+  DEVICE_STATE_CYCLE,
+  DEVICE_STATE_SLEEP
 };
 
+#define APP_TX_DUTYCYCLE_RND 1000
 
-#define APP_TX_DUTYCYCLE_RND          1000
-
-class LoRaWanClass{
+class LoRaWanClass {
 public:
-  void init(DeviceClass_t classMode,LoRaMacRegion_t region);
-  void join();
-  void send(DeviceClass_t classMode);
-  void cycle(uint32_t dutyCycle);
-  void sleep(DeviceClass_t classMode,uint8_t debugLevel);
-  void displayJoining();
-  void displayJoined();
-  void displaySending();
-  void displayAck();
-  void displayMcuInit();
-  void generateDeveuiByChipID();
+  void init (DeviceClass_t classMode, LoRaMacRegion_t region);
+  void join ();
+  void send (DeviceClass_t classMode);
+  void cycle (uint32_t dutyCycle);
+  void sleep (DeviceClass_t classMode, uint8_t debugLevel);
+  void displayJoining ();
+  void displayJoined ();
+  void displaySending ();
+  void displayAck ();
+  void displayMcuInit ();
+  void generateDeveuiByChipID ();
 };
 
 extern enum eDeviceState deviceState;
@@ -54,20 +53,20 @@ extern bool loraWanAdr;
 extern bool isTxConfirmed;
 extern uint32_t appTxDutyCycle;
 extern uint8_t confirmedNbTrials;
-extern DeviceClass_t  loraWanClass;
-extern uint8_t DevEui[];
-extern uint8_t AppEui[];
-extern uint8_t AppKey[];
-extern uint8_t NwkSKey[];
-extern uint8_t AppSKey[];
+extern DeviceClass_t loraWanClass;
+extern uint8_t DevEui [];
+extern uint8_t AppEui [];
+extern uint8_t AppKey [];
+extern uint8_t NwkSKey [];
+extern uint8_t AppSKey [];
 extern uint32_t DevAddr;
 extern uint8_t idDisplayJoined;
 extern uint8_t ifDisplayAck;
-extern uint16_t userChannelsMask[6];
+extern uint16_t userChannelsMask [6];
 
 extern LoRaWanClass LoRaWAN;
 
-#if defined( WIFI_LoRa_32 ) || defined( WIFI_LoRa_32_V2 ) || defined( Wireless_Stick )
+#if defined (WIFI_LoRa_32) || defined (WIFI_LoRa_32_V2) || defined (Wireless_Stick)
 extern SSD1306 Display;
 #endif
 
