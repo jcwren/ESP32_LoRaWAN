@@ -1370,39 +1370,45 @@ _ZN8McuClass4initEiiiiPj:
         .string "Deep Sleep until Next TxPacket:%d ms\r\n"
         .section        .text._ZN8McuClass5sleepEhh,"ax",@progbits
         .literal_position
-        .literal .LC103, TimerListHead
-        .literal .LC104, TxNextPacketTimer
-        .literal .LC105, IsLoRaMacNetworkJoined
-        .literal .LC106, toDeepSleep
-        .literal .LC107, nextAlarm
+        .literal .LC103, TimerListHead          # TimerEvent_t * (timer.S)
+        .literal .LC104, TxNextPacketTimer      # TimerEvent_t   (ESP32_LoRaWAN.cpp)
+        .literal .LC105, IsLoRaMacNetworkJoined # bool           (LoRaMAC.c)
+        .literal .LC106, toDeepSleep            # uint8_t        (Mcu.s)
+        .literal .LC107, nextAlarm              # uint64_t       (rtc-board.S)
         .literal .LC110, .LC109
         .align  4
         .global _ZN8McuClass5sleepEhh
         .type   _ZN8McuClass5sleepEhh, @function
 _ZN8McuClass5sleepEhh:
         entry   sp, 32
-        extui   a3, a3, 0, 8
-        extui   a4, a4, 0, 8
-        beqz.n  a3, .L96
+        extui   a3, a3, 0, 8    # DeviceClass_t classModeClass (A == 0, B == 1, C == 2)
+        extui   a4, a4, 0, 8    # uint8_t debugLevel
+        beqz.n  a3, .L96        # If classModeClass == CLASS_A, go to L96
 .L98:
-        l32r    a2, .LC107
+        l32r    a2, .LC107      # Get nextAlarm
         j       .L97
 .L96:
         l32r    a2, .LC103
         l32r    a3, .LC104
+#
         l32i.n  a2, a2, 0
-        bne     a2, a3, .L98
+        bne     a2, a3, .L98    # If TimerListHead != &TxNextPacketTimer, goto L98
+#
         l32i.n  a5, a2, 16
-        bnez.n  a5, .L98
+        bnez.n  a5, .L98        # If TimerListHead->Next, goto L98
+#
         l32r    a2, .LC105
         l8ui    a2, a2, 0
-        beqz.n  a2, .L98
+        beqz.n  a2, .L98        # If IsLoRaMacNetworkJoined == 0, goto L98
+#
         l32r    a3, .LC106
         l8ui    a2, a3, 0
-        bgeui   a2, 5, .L99
+        bgeui   a2, 5, .L99     # If toDeepSleep == 5, goto L99
+#
         addi.n  a2, a2, 1
-        s8i     a2, a3, 0
+        s8i     a2, a3, 0       # toDeepSleep += 1
         retw.n
+#
 .L99:
         call8   TimerGetTimerValue
         l32r    a3, .LC107
@@ -1469,7 +1475,10 @@ _ZN8McuClass5sleepEhh:
         movi.n  a11, 1
         movi.n  a10, 0x1b
         call8   pinMode
-        call8   esp_deep_sleep_start
+        call8   esp_deep_sleep_start    # No return
+#
+#  Got here because we're using class C
+#
 .L97:
         call8   TimerGetTimerValue
         l32i.n  a8, a2, 4
