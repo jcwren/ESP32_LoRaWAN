@@ -1476,39 +1476,50 @@ _ZN8McuClass5sleepEhh:
         movi.n  a10, 0x1b
         call8   pinMode
         call8   esp_deep_sleep_start    # No return
-#
-#  Got here because we're using class C
-#
+/*
+** Got here because we're using class C. a2 points to nextAlarm
+**
+** if (TimerGetTimerValue () < nextAlarm), goto L105
+*/
 .L97:
-        call8   TimerGetTimerValue
-        l32i.n  a8, a2, 4
-        mov.n   a3, a2
-        bltu    a11, a8, .L105
-        bne     a8, a11, .L109
-        l32i.n  a4, a2, 0
-        bltu    a10, a4, .L105
+        call8   TimerGetTimerValue      # Returns uint64_t in a11:a10
+        l32i.n  a8, a2, 4               # a8 = high (nextAlarm)
+        mov.n   a3, a2                  # a3 = a2
+        bltu    a11, a8, .L105          # if high (TimerGetTimerValue) < high (nextAlarm), goto L105
+        bne     a8, a11, .L109          # if high (TimerGetTimerValue) != high (nextAlarm), goto L109
+        l32i.n  a4, a2, 0               # a4 = low (nextAlarm)
+        bltu    a10, a4, .L105          # if low (TimerGetTimerValue> < low (nextAlarm), goto L105
+/*
+** if (TimerGetTimerValue () < nextAlarm), goto L95
+*/
 .L109:
-        call8   TimerGetTimerValue
-        l32i.n  a2, a3, 4
-        bltu    a11, a2, .L95
-        bne     a2, a11, .L107
-        l32i.n  a2, a3, 0
-        bltu    a10, a2, .L95
+        call8   TimerGetTimerValue      # Returns uint64_t in a11:a10
+        l32i.n  a2, a3, 4               # a2 = high (nextAlarm)
+        bltu    a11, a2, .L95           # if high (TimerGetTimerValue) < high (nextAlarm) goto L95
+        bne     a2, a11, .L107          # if high (TimerGetTimerValue) != high (nextAlarm), goto L95
+        l32i.n  a2, a3, 0               # a2 = low (nextAlarm)
+        bltu    a10, a2, .L95           # if low (TimerGetTimerValue> < low (nextAlarm), goto L95
         j       .L107
+/*
+**  If (nextAlarm < (TimerGetTimerValue () + 100), goto L97
+*/
 .L105:
-        call8   TimerGetTimerValue
-        addi    a8, a10, 100
-        movi.n  a9, 1
-        bltu    a8, a10, .L110
-        movi.n  a9, 0
+        call8   TimerGetTimerValue      # Returns uint64_t in a11:a10
+        addi    a8, a10, 100            # a8 = low (TimerGetTimerValue) + 100
+        movi.n  a9, 1                   # a9 = 1
+        bltu    a8, a10, .L110          # if a8 < a10, not 32-bit overflow
+        movi.n  a9, 0                   # a9 = 0
+#
 .L110:
-        add.n   a11, a9, a11
-        l32i.n  a9, a2, 4
-        bltu    a9, a11, .L97
-        bne     a9, a11, .L109
-        l32i.n  a4, a2, 0
-        bltu    a4, a8, .L97
-        j       .L109
+        add.n   a11, a9, a11            # high (TimerGetTimerValue) += a9
+        l32i.n  a9, a2, 4               # a9 = high (nextAlarm)
+        bltu    a9, a11, .L97           # if high (nextAlarm) < high (TimerGetTimerValue), goto L97
+        bne     a9, a11, .L109          # if high (nextAlarm) != high (TimerGetTimerValue), goto L109
+        l32i.n  a4, a2, 0               # a4 = low (nextAlarm)
+        bltu    a4, a8, .L97            # if low (nextAlarm) < low (TimerGetTimerValue), goto L97
+#
+        j       .L109                   # goto L109
+#
 .L107:
         call8   TimerIrqHandler
 .L95:
