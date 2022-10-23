@@ -1,11 +1,5 @@
 #include <ESP32_LoRaWAN.h>
 
-#if defined (WIFI_LoRa_32) || defined (WIFI_LoRa_32_V2) 
-SSD1306  Display (0x3c, SDA_OLED, SCL_OLED, RST_OLED);
-#elif defined (Wireless_Stick)
-SSD1306  Display (0x3c, SDA_OLED, SCL_OLED, RST_OLED, GEOMETRY_64_32);
-#endif
-
 #ifdef REGION_EU868
 #include "region/RegionEU868.h"
 #endif
@@ -27,7 +21,7 @@ uint8_t appDataSize = 4;
 /*!
  * User application data
  */
-uint8_t appData[LORAWAN_APP_DATA_MAX_SIZE];
+uint8_t appData [LORAWAN_APP_DATA_MAX_SIZE];
 
 
 /*!
@@ -44,10 +38,8 @@ TimerEvent_t TxNextPacketTimer;
  * Indicates if a new packet can be sent
  */
 static bool NextTx = true;
-
-uint8_t ifDisplayJoined = 0;
-uint8_t ifDisplayAck = 0;
 enum eDeviceState deviceState;
+lorawanCallbacks_t lorawanCallbacks;
 
 static void lwan_dev_params_update (void);
 
@@ -75,7 +67,10 @@ bool SendFrame (void)
   {
     if (isTxConfirmed == true)
     {
-      xprintf ("Confirmed uplink sending...\n");
+      if (lorawanCallbacks.onConfirmedUplinkSending)
+        lorawanCallbacks.onConfirmedUplinkSending ();
+
+
       mcpsReq.Type = MCPS_CONFIRMED;
       mcpsReq.Req.Confirmed.fPort = appPort;
       mcpsReq.Req.Confirmed.fBuffer = appData;
@@ -85,7 +80,9 @@ bool SendFrame (void)
     }
     else
     {
-      xprintf ("Unconfirmed uplink sending...\n");
+      if (lorawanCallbacks.onUnconfirmedUplinkSending)
+        lorawanCallbacks.onUnconfirmedUplinkSending ();
+
       mcpsReq.Type = MCPS_UNCONFIRMED;
       mcpsReq.Req.Unconfirmed.fPort = appPort;
       mcpsReq.Req.Unconfirmed.fBuffer = appData;
@@ -150,14 +147,14 @@ static void McpsConfirm (McpsConfirm_t *mcpsConfirm)
   {
     switch (mcpsConfirm->McpsRequest)
     {
-      case MCPS_UNCONFIRMED:
+      case MCPS_UNCONFIRMED :
         {
           // Check Datarate
           // Check TxPower
         }
         break;
 
-      case MCPS_CONFIRMED:
+      case MCPS_CONFIRMED :
         {
           // Check Datarate
           // Check TxPower
@@ -166,10 +163,10 @@ static void McpsConfirm (McpsConfirm_t *mcpsConfirm)
         }
         break;
 
-      case MCPS_PROPRIETARY:
+      case MCPS_PROPRIETARY :
         break;
 
-      default:
+      default :
         break;
     }
   }
@@ -183,19 +180,8 @@ uint16_t GetBatteryVoltage (void)
   return 0;
 }
 
-void __attribute__((weak)) downLinkDataHandle (McpsIndication_t *mcpsIndication)
+void __attribute__((weak)) downLinkDataHandle (McpsIndication_t *mcpsIndication __attribute__ ((unused)))
 {
-  char buffer [64];
-  size_t l = 0;
-
-  xprintf ("+REV DATA:%s, RXSIZE %d, PORT %d\n", mcpsIndication->RxSlot?"RXWIN2":"RXWIN1", mcpsIndication->BufferSize, mcpsIndication->Port);
-
-  l += snprintf (&buffer [l], sizeof (buffer) - l, "+REV DATA:");
-
-  for (uint8_t i = 0; i < mcpsIndication->BufferSize; i++)
-    l += snprintf (&buffer [l], sizeof (buffer) - l, "%02x", mcpsIndication->Buffer [i]);
-
-  xprintf ("%s\n", buffer);
 }
 
 /*!
@@ -204,53 +190,58 @@ void __attribute__((weak)) downLinkDataHandle (McpsIndication_t *mcpsIndication)
  * \param   [IN] mcpsIndication - Pointer to the indication structure,
  *               containing indication attributes.
  */
-int ackrssi;
 static void McpsIndication (McpsIndication_t *mcpsIndication)
 {
   if (mcpsIndication->Status != LORAMAC_EVENT_INFO_STATUS_OK)
     return;
 
-  ifDisplayAck = 1;
-  ackrssi = mcpsIndication->Rssi;
-  xprintf ("Receive data: rssi = %d, snr = %d, datarate = %d\n", mcpsIndication->Rssi, (int)mcpsIndication->Snr, (int)mcpsIndication->RxDatarate);
+  if (lorawanCallbacks.onMcpsIndication)
+    lorawanCallbacks.onMcpsIndication ((int) mcpsIndication->Rssi, (int) mcpsIndication->Snr, (int) mcpsIndication->RxDatarate);
+
   delay (10);
 
   switch (mcpsIndication->McpsIndication)
   {
-    case MCPS_UNCONFIRMED:
+    case MCPS_UNCONFIRMED :
       break;
 
-    case MCPS_CONFIRMED:
+    case MCPS_CONFIRMED :
       break;
 
-    case MCPS_PROPRIETARY:
+    case MCPS_PROPRIETARY :
       break;
 
-    case MCPS_MULTICAST:
+    case MCPS_MULTICAST :
       break;
 
-    default:
+    default :
       break;
   }
 
+  //
   // Check Multicast
   // Check Port
   // Check Datarate
   // Check FramePending
+  //
   if (mcpsIndication->FramePending == true)
   {
+    //
     // The server signals that it has pending data to be sent.
     // We schedule an uplink as soon as possible to flush the server.
+    //
     OnTxNextPacketTimerEvent ();
   }
 
+  //
   // Check Buffer
   // Check BufferSize
   // Check Rssi
   // Check Snr
   // Check RxSlot
-  if (mcpsIndication->RxData == true)
-    downLinkDataHandle (mcpsIndication);
+  //
+  if ((mcpsIndication->RxData == true) && lorawanCallbacks.onDataReceived)
+    lorawanCallbacks.onDataReceived (mcpsIndication);
 }
 
 /*!
@@ -263,27 +254,29 @@ static void MlmeConfirm (MlmeConfirm_t *mlmeConfirm)
 {
   switch (mlmeConfirm->MlmeRequest)
   {
-    case MLME_JOIN:
+    case MLME_JOIN :
       {
         if (mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK)
         {
-          ifDisplayJoined++;
-          xprintf ("Joined\n");
+          if (lorawanCallbacks.onJoinSuccess)
+            lorawanCallbacks.onJoinSuccess ();
 
-          // Status is OK, node has joined the network
           deviceState = DEVICE_STATE_SEND;
         }
         else
         {
           uint32_t rejoin_delay = 30000;
-          xprintf ("Join failed, rejoin in %dms\n", rejoin_delay);
+
+          if (lorawanCallbacks.onJoinFailed)
+            rejoin_delay = lorawanCallbacks.onJoinFailed ();
+
           TimerSetValue (&TxNextPacketTimer, rejoin_delay);
           TimerStart (&TxNextPacketTimer);
         }
       }
       break;
 
-    case MLME_LINK_CHECK:
+    case MLME_LINK_CHECK :
       {
         if (mlmeConfirm->Status == LORAMAC_EVENT_INFO_STATUS_OK)
         {
@@ -293,7 +286,7 @@ static void MlmeConfirm (MlmeConfirm_t *mlmeConfirm)
       }
       break;
 
-    default:
+    default :
       break;
   }
 
@@ -309,12 +302,14 @@ static void MlmeIndication (MlmeIndication_t *mlmeIndication)
 {
   switch (mlmeIndication->MlmeIndication)
   {
-    case MLME_SCHEDULE_UPLINK:
-      {// The MAC signals that we shall provide an uplink as soon as possible
-        OnTxNextPacketTimerEvent ();
-        break;
-      }
-    default:
+    //
+    // The MAC signals that we shall provide an uplink as soon as possible
+    //
+    case MLME_SCHEDULE_UPLINK :
+      OnTxNextPacketTimerEvent ();
+        ;
+      
+    default :
       break;
   }
 }
@@ -354,7 +349,7 @@ LoRaMacCallback_t LoRaMacCallback;
 void LoRaWanClass::generateDeveuiByChipID ()
 {
   int i;
-  uint64_t chipid = ESP.getEfuseMac ();//The chip ID is essentially its MAC address (length: 6 bytes).
+  uint64_t chipid = ESP.getEfuseMac (); //The chip ID is essentially its MAC address (length: 6 bytes).
 
   for (i = 0; i < 6; i++)
   {
@@ -369,10 +364,7 @@ void LoRaWanClass::generateDeveuiByChipID ()
 void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
 {
   if (classMode == CLASS_B)
-  {
-    xprintf ("Class B is not supported, switch to Class A\n");
     classMode = CLASS_A;
-  }
 
   MibRequestConfirm_t mibReq;
 
@@ -388,9 +380,6 @@ void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
 
   if (IsLoRaMacNetworkJoined == false)
   {
-    char buffer [128];
-    size_t l = 0;
-
     mibReq.Type = MIB_ADR;
     mibReq.Param.AdrEnable = loraWanAdr;
     LoRaMacMibSetRequestConfirm (&mibReq);
@@ -403,54 +392,28 @@ void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
     mibReq.Param.Class = classMode;
     LoRaMacMibSetRequestConfirm (&mibReq);
 
-    l += snprintf (&buffer [l], sizeof (buffer) - l, "DevEUI=");
-
-    for (int i = 0;i<8;i++)
-      l += snprintf (&buffer [l], sizeof (buffer) - l, "%02X", DevEui [i]); 
-
-    xprintf ("%s\n", buffer);
-
-    l = 0;
-    l += snprintf (&buffer [l], sizeof (buffer) - l, "LoRaWAN ");
-
-    switch (region)
+    if (lorawanCallbacks.onInit)
     {
-      case LORAMAC_REGION_AS923:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "AS923");
-        break;
-      case LORAMAC_REGION_AU915:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "AU915");
-        break;
-      case LORAMAC_REGION_CN470:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "CN470");
-        break;
-      case LORAMAC_REGION_CN779:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "CN779");
-        break;
-      case LORAMAC_REGION_EU433:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "EU433");
-        break;
-      case LORAMAC_REGION_EU868:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "EU868");
-        break;
-      case LORAMAC_REGION_KR920:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "KR920");
-        break;
-      case LORAMAC_REGION_IN865:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "IN876");
-        break;
-      case LORAMAC_REGION_US915:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "US915");
-        break;
-      case LORAMAC_REGION_US915_HYBRID:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "US915_HYBRID");
-        break;
-      case LORAMAC_REGION_LA915:
-        l += snprintf (&buffer [l], sizeof (buffer) - l, "LA915");
-        break;
-    }
+      const char *regionText;
 
-    xprintf ("%s, Class %X\n", buffer, loraWanClass + 10);
+      switch (region)
+      {
+        case LORAMAC_REGION_AS923        : regionText = "AS923";        break;
+        case LORAMAC_REGION_AU915        : regionText = "AU915";        break;
+        case LORAMAC_REGION_CN470        : regionText = "CN470";        break;
+        case LORAMAC_REGION_CN779        : regionText = "CN779";        break;
+        case LORAMAC_REGION_EU433        : regionText = "EU433";        break;
+        case LORAMAC_REGION_EU868        : regionText = "EU868";        break;
+        case LORAMAC_REGION_KR920        : regionText = "KR920";        break;
+        case LORAMAC_REGION_IN865        : regionText = "IN876";        break;
+        case LORAMAC_REGION_US915        : regionText = "US915";        break;
+        case LORAMAC_REGION_US915_HYBRID : regionText = "US915_HYBRID"; break;
+        case LORAMAC_REGION_LA915        : regionText = "LA915";        break;
+        default                          : regionText = "(unknown)";    break;
+      }
+
+      lorawanCallbacks.onInit (regionText, loraWanClass);
+    }
 
     lwan_dev_params_update ();
     deviceState = DEVICE_STATE_JOIN;
@@ -463,7 +426,6 @@ void LoRaWanClass::join ()
 {
   if (overTheAirActivation == true)
   {
-    xprintf ("Joining...\n");
     MlmeReq_t mlmeReq;
 
     mlmeReq.Type = MLME_JOIN;
@@ -523,137 +485,5 @@ void LoRaWanClass::sleep (DeviceClass_t classMode, uint8_t debugLevel)
   Radio.IrqProcess ();
   Mcu.sleep (classMode, debugLevel);
 }
-
-#if defined (WIFI_LoRa_32) || defined (WIFI_LoRa_32_V2) || defined (Wireless_Stick)
-
-void LoRaWanClass::displayJoining ()
-{
-  digitalWrite (Vext, LOW);
-  delay (20);
-  Display.init ();
-  delay (20);
-  Display.wakeup ();
-
-#ifdef Wireless_Stick
-  Display.setFont (ArialMT_Plain_10);
-#else
-  Display.setFont (ArialMT_Plain_16);
-#endif
-  Display.setTextAlignment (TEXT_ALIGN_CENTER);
-  Display.clear ();
-#ifdef Wireless_Stick
-  Display.drawString (32, 40, "JOINING...");
-#else
-  Display.drawString (58, 22, "JOINING...");
-#endif
-  Display.display ();
-}
-
-void LoRaWanClass::displayJoined ()
-{
-  ifDisplayJoined--;
-  digitalWrite (Vext, LOW);
-  delay (50);
-  Display.wakeup ();
-  Display.clear ();
-
-#ifdef Wireless_Stick
-  Display.drawString (32, 40, "JOINED");
-#else
-  Display.drawString (64, 22, "JOINED");
-#endif
-  Display.display ();
-  delay (1000);
-  Display.sleep ();
-  digitalWrite (Vext, HIGH);
-}
-
-void LoRaWanClass::displaySending ()
-{
-  if (ifDisplayJoined)
-    displayJoined ();
-
-  digitalWrite (Vext, LOW);
-  delay (20);
-  Display.init ();
-  Display.wakeup ();
-
-#ifdef Wireless_Stick
-  Display.setFont (ArialMT_Plain_10);
-#else
-  Display.setFont (ArialMT_Plain_16);
-#endif
-  Display.setTextAlignment (TEXT_ALIGN_CENTER);
-  Display.clear ();
-#ifdef Wireless_Stick
-  Display.drawString (58, 40, "SENDING...");
-#else
-  Display.drawString (58, 22, "SENDING...");
-#endif
-  Display.display ();
-}
-
-void LoRaWanClass::displayAck ()
-{
-  if (ifDisplayAck == 0)
-    return;
-
-  ifDisplayAck--;
-
-  Display.clear ();
-#ifdef Wireless_Stick
-  Display.drawString (64, 30, "Got ACK");
-#else
-  Display.setFont (ArialMT_Plain_10);
-  Display.setTextAlignment (TEXT_ALIGN_RIGHT);
-  Display.drawString (128, 0, "rssi "+String (ackrssi));
-  Display.setFont (ArialMT_Plain_16);
-  Display.setTextAlignment (TEXT_ALIGN_CENTER);
-  Display.drawString (64, 22, "ACK RECEIVED");
-#endif
-
-  if (loraWanClass == CLASS_A)
-  {
-    Display.setFont (ArialMT_Plain_10);
-    Display.setTextAlignment (TEXT_ALIGN_LEFT);
-#ifdef Wireless_Stick
-    Display.drawString (32, 50, "Sleep in 2S");
-#else
-    Display.drawString (32, 50, "Deep sleep in 2S");
-#endif
-  }
-
-  Display.display ();
-
-  if (loraWanClass == CLASS_A)
-  {
-    delay (2000);
-    Display.sleep ();
-    digitalWrite (Vext, HIGH);
-  }
-}
-
-void LoRaWanClass::displayMcuInit ()
-{
-  Display.wakeup ();
-  Display.init ();
-  delay (100);
-
-#ifdef Wireless_Stick
-  Display.setFont (ArialMT_Plain_10);
-  Display.setTextAlignment (TEXT_ALIGN_CENTER);
-  Display.clear ();
-  Display.drawString (32, 30, "LORAWAN");
-  Display.drawString (32, 50, "STARTING");
-#else
-  Display.setFont (ArialMT_Plain_16);
-  Display.setTextAlignment (TEXT_ALIGN_CENTER);
-  Display.clear ();
-  Display.drawString (64, 11, "LORAWAN");
-  Display.drawString (64, 31, "STARTING");
-#endif
-  Display.display ();
-}
-#endif
 
 LoRaWanClass LoRaWAN;

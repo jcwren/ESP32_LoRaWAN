@@ -12,9 +12,15 @@
 #include "Commissioning.h"
 #include "rtc-board.h"
 #include "delay.h"
-#include <Wire.h>  // Only needed for Arduino 1.6.5 and earlier
-#include "SSD1306.h" // alias for `#include "SSD1306Wire.h"`
 
+//
+//
+//
+#define APP_TX_DUTYCYCLE_RND 1000
+
+//
+//
+//
 enum eDeviceState
 {
   DEVICE_STATE_INIT,  // 0 -
@@ -24,8 +30,24 @@ enum eDeviceState
   DEVICE_STATE_SLEEP  // 4 -
 };
 
-#define APP_TX_DUTYCYCLE_RND 1000
+//
+//
+//
+typedef struct lorawanCallbacks_s
+{
+  void     (*onInit) (const char *regionText, DeviceClass_t classMode);
+  void     (*onJoinSuccess) (void);
+  uint32_t (*onJoinFailed) (void);
+  void     (*onDataReceived) (McpsIndication_t *mcpsIndication);
+  void     (*onConfirmedUplinkSending) (void);
+  void     (*onUnconfirmedUplinkSending) (void);
+  void     (*onMcpsIndication) (int rssi, int snr, int dataRate);
+}
+lorawanCallbacks_t;
 
+//
+//
+//
 class LoRaWanClass {
 public:
   void init (DeviceClass_t classMode, LoRaMacRegion_t region);
@@ -33,18 +55,17 @@ public:
   void send (DeviceClass_t classMode);
   void cycle (uint32_t dutyCycle);
   void sleep (DeviceClass_t classMode, uint8_t debugLevel);
-  void displayJoining ();
-  void displayJoined ();
-  void displaySending ();
-  void displayAck ();
-  void displayMcuInit ();
   void generateDeveuiByChipID ();
 };
 
+//
+//
+//
+extern lorawanCallbacks_t lorawanCallbacks;
 extern enum eDeviceState deviceState;
 extern uint8_t appPort;
 extern uint32_t txDutyCycleTime;
-extern uint8_t appData[LORAWAN_APP_DATA_MAX_SIZE];
+extern uint8_t appData [LORAWAN_APP_DATA_MAX_SIZE];
 extern uint8_t appDataSize;
 extern uint32_t txDutyCycleTime;
 extern bool overTheAirActivation;
@@ -60,16 +81,13 @@ extern uint8_t AppKey [];
 extern uint8_t NwkSKey [];
 extern uint8_t AppSKey [];
 extern uint32_t DevAddr;
-extern uint8_t idDisplayJoined;
-extern uint8_t ifDisplayAck;
 extern uint16_t userChannelsMask [6];
 
 extern LoRaWanClass LoRaWAN;
 
-#if defined (WIFI_LoRa_32) || defined (WIFI_LoRa_32_V2) || defined (Wireless_Stick)
-extern SSD1306 Display;
-#endif
-
+//
+//
+//
 #ifdef __cplusplus
 extern "C"{
 #endif
