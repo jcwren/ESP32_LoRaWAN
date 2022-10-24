@@ -70,7 +70,7 @@ static aes_context AesContext;
 static AES_CMAC_CTX AesCmacCtx[1];
 
 /*!
- * \brief Computes the LoRaMAC frame MIC field  
+ * \brief Computes the LoRaMAC frame MIC field
  *
  * \param [IN]  buffer          Data buffer
  * \param [IN]  size            Data buffer size
@@ -83,7 +83,7 @@ static AES_CMAC_CTX AesCmacCtx[1];
 void LoRaMacComputeMic( const uint8_t *buffer, uint16_t size, const uint8_t *key, uint32_t address, uint8_t dir, uint32_t sequenceCounter, uint32_t *mic )
 {
     MicBlockB0[5] = dir;
-    
+
     MicBlockB0[6] = ( address ) & 0xFF;
     MicBlockB0[7] = ( address >> 8 ) & 0xFF;
     MicBlockB0[8] = ( address >> 16 ) & 0xFF;
@@ -101,11 +101,11 @@ void LoRaMacComputeMic( const uint8_t *buffer, uint16_t size, const uint8_t *key
     AES_CMAC_SetKey( AesCmacCtx, key );
 
     AES_CMAC_Update( AesCmacCtx, MicBlockB0, LORAMAC_MIC_BLOCK_B0_SIZE );
-    
+
     AES_CMAC_Update( AesCmacCtx, buffer, size & 0xFF );
-    
+
     AES_CMAC_Final( Mic, AesCmacCtx );
-    
+
     *mic = ( uint32_t )( ( uint32_t )Mic[3] << 24 | ( uint32_t )Mic[2] << 16 | ( uint32_t )Mic[1] << 8 | ( uint32_t )Mic[0] );
 }
 
@@ -188,7 +188,7 @@ void LoRaMacJoinComputeSKeys( const uint8_t *key, const uint8_t *appNonce, uint1
 {
     uint8_t nonce[16];
     uint8_t *pDevNonce = ( uint8_t * )&devNonce;
-    
+
     memset1( AesContext.ksch, '\0', 240 );
     lorawan_aes_set_key( key, 16, &AesContext );
 

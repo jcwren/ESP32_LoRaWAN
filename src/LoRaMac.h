@@ -1116,7 +1116,7 @@ typedef struct sMcpsIndication {
     bool DevTimeAnsReceived;
     bool LinkCheckAnsReceived;
     bool UplinkNeeded;
-#endif    
+#endif
 } McpsIndication_t;
 
 /*!
@@ -1647,11 +1647,11 @@ typedef enum eMib {
      * The allowed ranges are region specific. Please refer to \ref DR_0 to \ref DR_15 for details.
      */
     MIB_PING_SLOT_DATARATE,
-    
+
 #ifdef CONFIG_LWAN
     MIB_RX1_DATARATE_OFFSET,
     MIB_MAC_STATE,
-#endif  
+#endif
 
 #ifdef CONFIG_LINKWAN
     MIB_FREQ_BAND
@@ -1928,7 +1928,7 @@ typedef union uMibParam {
      * Related MIB type: \ref MIB_PING_SLOT_DATARATE
      */
     int8_t PingSlotDatarate;
-    
+
 #ifdef CONFIG_LWAN
     uint8_t Rx1DrOffset;
     uint32_t LoRaMacState;
