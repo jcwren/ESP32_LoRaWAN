@@ -70,7 +70,6 @@ bool SendFrame (void)
       if (lorawanCallbacks.onConfirmedUplinkSending)
         lorawanCallbacks.onConfirmedUplinkSending ();
 
-
       mcpsReq.Type = MCPS_CONFIRMED;
       mcpsReq.Req.Confirmed.fPort = appPort;
       mcpsReq.Req.Confirmed.fBuffer = appData;
