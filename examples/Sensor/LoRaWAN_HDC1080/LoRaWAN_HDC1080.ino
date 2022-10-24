@@ -43,7 +43,7 @@ uint8_t NwkSKey[] = { 0x15, 0xb1, 0xd0, 0xef, 0xa4, 0x63, 0xdf, 0xbe, 0x3d, 0x11
 uint8_t AppSKey[] = { 0xd7, 0x2c, 0x78, 0x75, 0x8c, 0xdc, 0xca, 0xbf, 0x55, 0xee, 0x4a, 0x77, 0x8d, 0x16, 0xef,0x67 };
 uint32_t DevAddr =  ( uint32_t )0x007e6ae1;
 
-/*LoraWan channelsmask, default channels 0-7*/ 
+/*LoraWan channelsmask, default channels 0-7*/
 uint16_t userChannelsMask[6]={ 0x00FF,0x0000,0x0000,0x0000,0x0000,0x0000 };
 
 /*LoraWan Class, Class A and Class C are supported*/
@@ -104,7 +104,7 @@ static void prepareTxFrame( uint8_t port )
   *appDataSize max value is LORAWAN_APP_DATA_MAX_SIZE.
   *if enabled AT, don't modify LORAWAN_APP_DATA_MAX_SIZE, it may cause system hanging or failure.
   *if disabled AT, LORAWAN_APP_DATA_MAX_SIZE can be modified, the max value is reference to lorawan region and SF.
-  *for example, if use REGION_CN470, 
+  *for example, if use REGION_CN470,
   *the max value for different DR can be found in MaxPayloadOfDatarateCN470 refer to DataratesCN470 and BandwidthsCN470 in "RegionCN470.h".
   */
     pinMode(Vext,OUTPUT);
@@ -152,7 +152,7 @@ void setup()
 
   adcAttachPin(37);
   analogSetClockDiv(255); // 1338mS
-  
+
   deviceState = DEVICE_STATE_INIT;
 }
 

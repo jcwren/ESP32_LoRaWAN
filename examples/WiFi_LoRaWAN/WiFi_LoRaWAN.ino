@@ -3,9 +3,9 @@
  * follow functions:
  *
  * - Transfer WiFi message to LoRaWAN payload;
- * 
+ *
  * Detail description about this demo code, please refer to this document:
- * 
+ *
  *
  * by Aaron.Lee from HelTec AutoMation, ChengDu, China
  * 成都惠利特自动化科技有限公司
@@ -39,7 +39,7 @@ uint8_t NwkSKey[] = { 0x15, 0xb1, 0xd0, 0xef, 0xa4, 0x63, 0xdf, 0xbe, 0x3d, 0x11
 uint8_t AppSKey[] = { 0xd7, 0x2c, 0x78, 0x75, 0x8c, 0xdc, 0xca, 0xbf, 0x55, 0xee, 0x4a, 0x77, 0x8d, 0x16, 0xef,0x67 };
 uint32_t DevAddr =  ( uint32_t )0x007e6ae1;
 
-/*LoraWan channelsmask, default channels 0-7*/ 
+/*LoraWan channelsmask, default channels 0-7*/
 uint16_t userChannelsMask[6]={ 0x00FF,0x0000,0x0000,0x0000,0x0000,0x0000 };
 
 /*LoraWan Class, Class A and Class C are supported*/
@@ -108,7 +108,7 @@ bool LoRaDownLink = false;
 uint32_t LoRadonwlinkTime;
 void downLinkDataHandle(McpsIndication_t *mcpsIndication)
 {
-  LoRa_data = ""; 
+  LoRa_data = "";
   Serial.printf("+REV DATA:%s,RXSIZE %d,PORT %d\r\n",mcpsIndication->RxSlot?"RXWIN2":"RXWIN1",mcpsIndication->BufferSize,mcpsIndication->Port);
   Serial.print("+REV DATA:");
   for(uint8_t i=0;i<mcpsIndication->BufferSize;i++)
@@ -152,7 +152,7 @@ window.onload=function(){\
       <div style=\"width:100%;text-align:center;\">\
         <div class=\"header\"><span>(Note 1: The default refresh time of this page is 10s. If you need to modify the refresh time, you can modify it in the 'setTimeout' function.)</span></div>\
         <div class=\"header\"><span>(Note 2: The refresh time needs to be modified according to the data sending frequency.)</span></div>\
-        <div class=\"header\"><span>Data: ";      
+        <div class=\"header\"><span>Data: ";
   String htmlF = "</span></div>\
       </form>\
     </div>\
@@ -197,7 +197,7 @@ void ROOT_HTML()
   Page_data =Page_data+ (String)num+ symbol + LoRa_data +"<br>";
   String html = htmlS + Page_data + htmlF;
   server.send(200,"text/html",html);
-}  
+}
 
 bool WiFiDownLink = false;
 uint32_t WiFidonwlinkTime;
@@ -220,7 +220,7 @@ void ROOT_HTMLW()
     LoRaWAN.send(loraWanClass);
   }
   server.send(200,"text/html",htmlW);
-} 
+}
 
 void setup(void) {
   Serial.begin(115200);
@@ -230,11 +230,11 @@ void setup(void) {
   deviceState = DEVICE_STATE_INIT;
   pinMode(WIFI_LED, OUTPUT);
   pinMode(LoRa_LED, OUTPUT);
-  digitalWrite(WIFI_LED, HIGH); 
+  digitalWrite(WIFI_LED, HIGH);
   digitalWrite(LoRa_LED, HIGH);
-  delay(1000); 
+  delay(1000);
   digitalWrite(WIFI_LED, LOW);
-  digitalWrite(LoRa_LED, LOW); 
+  digitalWrite(LoRa_LED, LOW);
   Serial.println();
   Serial.println("Booting Sketch...");
   WiFi.mode(WIFI_STA);

@@ -41,7 +41,7 @@ uint8_t NwkSKey[] = { 0x15, 0xb1, 0xd0, 0xef, 0xa4, 0x63, 0xdf, 0xbe, 0x3d, 0x11
 uint8_t AppSKey[] = { 0xd7, 0x2c, 0x78, 0x75, 0x8c, 0xdc, 0xca, 0xbf, 0x55, 0xee, 0x4a, 0x77, 0x8d, 0x16, 0xef,0x67 };
 uint32_t DevAddr =  ( uint32_t )0x007e6ae1;
 
-/*LoraWan channelsmask, default channels 0-7*/ 
+/*LoraWan channelsmask, default channels 0-7*/
 uint16_t userChannelsMask[6]={ 0x00FF,0x0000,0x0000,0x0000,0x0000,0x0000 };
 
 /*LoraWan Class, Class A and Class C are supported*/
@@ -97,7 +97,7 @@ LoRaMacRegion_t loraWanRegion = ACTIVE_REGION;
 
 static void prepareTxFrame( uint8_t port )
 {
-    appDataSize = 4;//AppDataSize max value is 64 ( src/Commissioning.h -> 128 ) 
+    appDataSize = 4;//AppDataSize max value is 64 ( src/Commissioning.h -> 128 )
     appData[0] = 0x00;
     appData[1] = 0x01;
     appData[2] = 0x02;

@@ -81,13 +81,13 @@ public:
 	uint16_t readManufacturerId(); // 0x5449 ID of Texas Instruments
 	uint16_t readDeviceId(); // 0x1050 ID of the device
 
-	HDC1080_Registers readRegister();	
+	HDC1080_Registers readRegister();
 	void writeRegister(HDC1080_Registers reg);
 
 	HDC1080_SerialNumber readSerialNumber();
 
 	void heatUp(uint8_t seconds);
-	
+
 	void setResolution(HDC1080_MeasurementResolution humidity, HDC1080_MeasurementResolution temperature);
 
 	double readTemperature();
@@ -99,7 +99,7 @@ public:
 private:
 	uint8_t _address;
 	uint16_t readData(uint8_t pointer);
-	
+
 };
 
 #endif
