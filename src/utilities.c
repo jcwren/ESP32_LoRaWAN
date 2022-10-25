@@ -14,6 +14,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/time.h>
 #include "board.h"
 //#include "utilities.h"
 
@@ -82,4 +83,48 @@ int8_t Nibble2HexChar( uint8_t a )
     {
         return '?';
     }
+}
+
+enum { US_PER_SECOND = 1000000 };
+
+struct timeval add_timeval (struct timeval t1, struct timeval t2)
+{
+  struct timeval td = { 0 };
+
+  td.tv_usec = t2.tv_usec + t1.tv_usec;
+  td.tv_sec  = t2.tv_sec  + t1.tv_sec;
+
+  if (td.tv_usec >= US_PER_SECOND)
+  {
+    td.tv_usec -= US_PER_SECOND;
+    td.tv_sec++;
+  }
+  else if (td.tv_usec <= -US_PER_SECOND)
+  {
+    td.tv_usec += US_PER_SECOND;
+    td.tv_sec--;
+  }
+
+  return td;
+}
+
+struct timeval sub_timeval (struct timeval t1, struct timeval t2)
+{
+  struct timeval td = { 0 };
+
+  td.tv_usec = t1.tv_usec - t2.tv_usec;
+  td.tv_sec  = t1.tv_sec  - t2.tv_sec;
+
+  if ((td.tv_sec > 0) && (td.tv_usec < 0))
+  {
+    td.tv_usec += US_PER_SECOND;
+    td.tv_sec--;
+  }
+  else if ((td.tv_sec < 0) && (td.tv_usec > 0))
+  {
+    td.tv_usec -= US_PER_SECOND;
+    td.tv_sec++;
+  }
+
+  return td;
 }

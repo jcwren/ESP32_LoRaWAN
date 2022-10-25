@@ -42,6 +42,9 @@ typedef struct lorawanCallbacks_s
   void     (*onConfirmedUplinkSending) (void);
   void     (*onUnconfirmedUplinkSending) (void);
   void     (*onMcpsIndication) (int rssi, int snr, int dataRate);
+  void     (*onSysTimeUpdate) (void);
+  uint8_t  (*onGetBatteryLevel) (void);
+  float    (*onGetTemperatureLevel) (void);
 }
 lorawanCallbacks_t;
 
@@ -56,6 +59,7 @@ public:
   void cycle (uint32_t dutyCycle);
   void sleep (DeviceClass_t classMode, uint8_t debugLevel);
   void generateDeveuiByChipID ();
+  void deviceTimeReq ();
 };
 
 //

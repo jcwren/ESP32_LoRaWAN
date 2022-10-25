@@ -15,6 +15,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #ifndef __UTILITIES_H__
 #define __UTILITIES_H__
 #include <stdint.h>
+#include <sys/time.h>
 
 #ifdef __cplusplus
 extern "C"{
@@ -101,6 +102,11 @@ void memset1( uint8_t *dst, uint8_t value, uint16_t size );
  */
 int8_t Nibble2HexChar( uint8_t a );
 
+/*!
+ * \brief Add t1+t2, or substract t2 from t1
+ */
+struct timeval add_timeval (struct timeval t1, struct timeval t2);
+struct timeval sub_timeval (struct timeval t1, struct timeval t2);
 
 #ifdef __cplusplus
 } // extern "C"

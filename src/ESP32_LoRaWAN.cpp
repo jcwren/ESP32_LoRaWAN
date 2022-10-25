@@ -48,7 +48,7 @@ static void lwan_dev_params_update (void);
  *
  * \retval  [0: frame could be send, 1: error]
  */
-bool SendFrame (void)
+static bool SendFrame (void)
 {
   McpsReq_t mcpsReq;
   LoRaMacTxInfo_t txInfo;
@@ -173,12 +173,6 @@ static void McpsConfirm (McpsConfirm_t *mcpsConfirm)
   NextTx = true;
 }
 
-/*  get the BatteryVoltage in mV. */
-uint16_t GetBatteryVoltage (void)
-{
-  return 0;
-}
-
 void __attribute__((weak)) downLinkDataHandle (McpsIndication_t *mcpsIndication __attribute__ ((unused)))
 {
 }
@@ -196,6 +190,9 @@ static void McpsIndication (McpsIndication_t *mcpsIndication)
 
   if (lorawanCallbacks.onMcpsIndication)
     lorawanCallbacks.onMcpsIndication ((int) mcpsIndication->Rssi, (int) mcpsIndication->Snr, (int) mcpsIndication->RxDatarate);
+
+    if (lorawanCallbacks.onSysTimeUpdate && (mcpsIndication->DeviceTimeAnsReceived == true))
+      lorawanCallbacks.onSysTimeUpdate ();
 
   delay (10);
 
@@ -371,8 +368,8 @@ void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
   LoRaMacPrimitive.MacMcpsIndication = McpsIndication;
   LoRaMacPrimitive.MacMlmeConfirm = MlmeConfirm;
   LoRaMacPrimitive.MacMlmeIndication = MlmeIndication;
-  LoRaMacCallback.GetBatteryLevel = BoardGetBatteryLevel;
-  LoRaMacCallback.GetTemperatureLevel = NULL;
+  LoRaMacCallback.GetBatteryLevel = lorawanCallbacks.onGetBatteryLevel ? lorawanCallbacks.onGetBatteryLevel : BoardGetBatteryLevel;
+  LoRaMacCallback.GetTemperatureLevel = lorawanCallbacks.onGetTemperatureLevel;
   LoRaMacInitialization (&LoRaMacPrimitive, &LoRaMacCallback, region);
   TimerStop (&TxNextPacketTimer);
   TimerInit (&TxNextPacketTimer, OnTxNextPacketTimerEvent);
@@ -465,6 +462,16 @@ void LoRaWanClass::join ()
 
     deviceState = DEVICE_STATE_SEND;
   }
+}
+
+void LoRaWanClass::deviceTimeReq ()
+{
+  MlmeReq_t mlmeReq;
+
+  mlmeReq.Type = MLME_DEVICE_TIME;
+
+  if (LoRaMacMlmeRequest (&mlmeReq) == LORAMAC_STATUS_OK)
+    NextTx = true;
 }
 
 void LoRaWanClass::send (DeviceClass_t classMode)

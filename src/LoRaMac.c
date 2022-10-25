@@ -21,6 +21,7 @@ License: Revised BSD License, see LICENSE.TXT file include in the project
 
 Maintainer: Miguel Luis ( Semtech ), Gregory Cristian ( Semtech ) and Daniel Jaeckle ( STACKFORCE )
 */
+#include <sys/time.h>
 #include "utilities.h"
 #include "LoRaMac.h"
 #include "LoRaMacCrypto.h"
@@ -28,7 +29,8 @@ Maintainer: Miguel Luis ( Semtech ), Gregory Cristian ( Semtech ) and Daniel Jae
 #include "LoRaMacConfirmQueue.h"
 #include "region/Region.h"
 
-extern  int xprintf(const char *format, ...);
+extern int xprintf (const char *format, ...);
+
 /*!
  * Maximum PHY layer payload size
  */
@@ -295,6 +297,11 @@ enum eLoRaMacState {
  * LoRaMac internal state
  */
 RTC_DATA_ATTR uint32_t LoRaMacState = LORAMAC_IDLE;
+
+/*!
+ * System time at last OnRadioTxDone
+ */
+RTC_DATA_ATTR struct timeval LastTxSysTime;
 
 /*!
  * LoRaMac timer used to check the LoRaMacState (runs every second)
@@ -672,6 +679,7 @@ static void OnRadioTxDone( void )
     PhyParam_t phyParam;
     SetBandTxDoneParams_t txDone;
     TimerTime_t curTime = TimerGetCurrentTime( );
+    gettimeofday (&LastTxSysTime, NULL);
 
     if( LoRaMacDeviceClass != CLASS_C )
     {
@@ -787,11 +795,10 @@ void OnRadioRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr )
     McpsIndication.AckReceived = false;
     McpsIndication.DownLinkCounter = 0;
     McpsIndication.McpsIndication = MCPS_UNCONFIRMED;
+    McpsIndication.DeviceTimeAnsReceived = false;
 
-    Radio.Sleep( );
-    TimerStop( &RxWindowTimer2 );
-
-
+    Radio.Sleep ();
+    TimerStop (&RxWindowTimer2);
 
     macHdr.Value = payload[pktHeaderLen++];
     switch ( macHdr.Bits.MType ) {
@@ -2017,6 +2024,55 @@ static void ProcessMacCommands( uint8_t *payload, uint8_t macIndex, uint8_t comm
                 AddMacCommand( MOTE_MAC_DL_CHANNEL_ANS, status, 0 );
             }
             break;
+            case SRV_MAC_DEVICE_TIME_ANS:
+            {
+                if( LoRaMacConfirmQueueIsCmdActive( MLME_DEVICE_TIME ) == true )
+                {
+                    LoRaMacConfirmQueueSetStatus( LORAMAC_EVENT_INFO_STATUS_OK, MLME_DEVICE_TIME );
+                    struct timeval gpsEpochTime = { 0 };
+                    struct timeval sysTime = { 0 };
+                    struct timeval sysTimeCurrent = { 0 };
+
+                    gpsEpochTime.tv_sec  = (typeof (gpsEpochTime.tv_sec)) payload [macIndex++];
+                    gpsEpochTime.tv_sec |= (typeof (gpsEpochTime.tv_sec)) payload [macIndex++] << 8;
+                    gpsEpochTime.tv_sec |= (typeof (gpsEpochTime.tv_sec)) payload [macIndex++] << 16;
+                    gpsEpochTime.tv_sec |= (typeof (gpsEpochTime.tv_sec)) payload [macIndex++] << 24;
+                    gpsEpochTime.tv_usec =                                payload [macIndex++];
+
+                    // Convert the fractional second received to ms
+                    // round (pow (0.5, 8.0) * 1000) = 3.90625ms per bit
+                    gpsEpochTime.tv_usec *= 3906;
+
+                    // Copy received GPS Epoch time into system time
+                    sysTime = gpsEpochTime;
+
+                    // Add Unix to Gps epcoh offset. The system time is based on Unix time.
+                    sysTime.tv_sec += UNIX_GPS_EPOCH_OFFSET;
+
+                    // Compensate time difference between Tx Done time and now
+                    gettimeofday (&sysTimeCurrent, NULL);
+                    xprintf ("gpsEpochTime=%d.%d, sysTime=%d.%d, sysTimeCurrent=%d.%d, LastTxSysTime=%d.%d\n",
+                        gpsEpochTime.tv_sec,
+                        gpsEpochTime.tv_usec,
+                        sysTime.tv_sec,
+                        sysTime.tv_usec,
+                        sysTimeCurrent.tv_sec,
+                        sysTimeCurrent.tv_usec,
+                        LastTxSysTime.tv_sec,
+                        LastTxSysTime.tv_usec);
+                    sysTime = add_timeval (sysTimeCurrent, sub_timeval (sysTime, LastTxSysTime));
+                    xprintf ("New sysTime=%d.%d\n", sysTime.tv_sec, sysTime.tv_usec);
+
+                    // Apply the new system time.
+                    settimeofday (&sysTime, NULL);
+#if 0
+                    // Implemented in LoRaMacClassB.c (when it's finally added)
+                    LoRaMacClassBDeviceTimeAns( );
+#endif
+                    McpsIndication.DeviceTimeAnsReceived = true;
+                }
+                break;
+            }
             default:
                 // Unknown command. ABORT MAC commands processing
                 return;
@@ -3130,120 +3186,137 @@ LoRaMacStatus_t LoRaMacMulticastChannelUnlink( MulticastParams_t *channelParam )
     return LORAMAC_STATUS_OK;
 }
 
-LoRaMacStatus_t LoRaMacMlmeRequest( MlmeReq_t *mlmeRequest )
+LoRaMacStatus_t LoRaMacMlmeRequest (MlmeReq_t *mlmeRequest)
 {
-    LoRaMacStatus_t status = LORAMAC_STATUS_SERVICE_UNKNOWN;
-    LoRaMacHeader_t macHdr;
-    MlmeConfirmQueue_t queueElement;
-    AlternateDrParams_t altDr;
-    VerifyParams_t verify;
-    GetPhyParams_t getPhy;
-    PhyParam_t phyParam;
+  LoRaMacStatus_t status = LORAMAC_STATUS_SERVICE_UNKNOWN;
+  LoRaMacHeader_t macHdr;
+  MlmeConfirmQueue_t queueElement;
+  AlternateDrParams_t altDr;
+  VerifyParams_t verify;
+  GetPhyParams_t getPhy;
+  PhyParam_t phyParam;
 
-    if ( mlmeRequest == NULL ) {
-        return LORAMAC_STATUS_PARAMETER_INVALID;
-    }
-    if( LoRaMacState != LORAMAC_IDLE )
-    {
-        return LORAMAC_STATUS_BUSY;
-    }
-    if( LoRaMacConfirmQueueIsFull( ) == true )
-    {
-        return LORAMAC_STATUS_BUSY;
-    }
+  if (mlmeRequest == NULL)
+    return LORAMAC_STATUS_PARAMETER_INVALID;
+  if (LoRaMacState != LORAMAC_IDLE)
+    return LORAMAC_STATUS_BUSY;
+  if (LoRaMacConfirmQueueIsFull () == true)
+    return LORAMAC_STATUS_BUSY;
 
-    switch ( mlmeRequest->Type ) {
-        case MLME_JOIN: {
-            if ( ( mlmeRequest->Req.Join.DevEui == NULL ) ||
-                 ( mlmeRequest->Req.Join.AppEui == NULL ) ||
-                 ( mlmeRequest->Req.Join.AppKey == NULL ) )
-            {
-                return LORAMAC_STATUS_PARAMETER_INVALID;
-            }
-            // Verify the parameter NbTrials for the join procedure
-            verify.NbJoinTrials = mlmeRequest->Req.Join.NbTrials;
+  switch (mlmeRequest->Type)
+  {
+    case MLME_JOIN:
+      {
+        if ((mlmeRequest->Req.Join.DevEui == NULL) ||
+            (mlmeRequest->Req.Join.AppEui == NULL) ||
+            (mlmeRequest->Req.Join.AppKey == NULL))
+          return LORAMAC_STATUS_PARAMETER_INVALID;
 
-            if ( RegionVerify( LoRaMacRegion, &verify, PHY_NB_JOIN_TRIALS ) == false ) {
-                // Value not supported, get default
-                getPhy.Attribute = PHY_DEF_NB_JOIN_TRIALS;
-                phyParam = RegionGetPhyParam( LoRaMacRegion, &getPhy );
-                mlmeRequest->Req.Join.NbTrials = ( uint8_t ) phyParam.Value;
-            }
+        // Verify the parameter NbTrials for the join procedure
+        verify.NbJoinTrials = mlmeRequest->Req.Join.NbTrials;
 
-            LoRaMacFlags.Bits.MlmeReq = 1;
-            queueElement.Request = mlmeRequest->Type;
-
-            LoRaMacDevEui = mlmeRequest->Req.Join.DevEui;
-            LoRaMacAppEui = mlmeRequest->Req.Join.AppEui;
-            LoRaMacAppKey = mlmeRequest->Req.Join.AppKey;
-            queueElement.Status = LORAMAC_EVENT_INFO_STATUS_JOIN_FAIL;
-            queueElement.RestrictCommonReadyToHandle = false;
-            LoRaMacConfirmQueueAdd( &queueElement );
-            MaxJoinRequestTrials = mlmeRequest->Req.Join.NbTrials;
-
-            // Reset variable JoinRequestTrials
-            JoinRequestTrials = 0;
-
-            // Setup header information
-            macHdr.Value = 0;
-            macHdr.Bits.MType  = FRAME_TYPE_JOIN_REQ;
-
-            ResetMacParameters( );
-
-            altDr.NbTrials = JoinRequestTrials + 1;
-            LoRaMacParams.ChannelsDatarate = RegionAlternateDr( LoRaMacRegion, &altDr );
-            status = Send( &macHdr, 0, NULL, 0 );
-            break;
-        }
-        case MLME_LINK_CHECK: {
-            // Apply the request
-            LoRaMacFlags.Bits.MlmeReq = 1;
-            queueElement.Request = mlmeRequest->Type;
-            queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
-            queueElement.RestrictCommonReadyToHandle = false;
-            LoRaMacConfirmQueueAdd( &queueElement );
-
-            // LoRaMac will send this command piggy-pack
-            status = AddMacCommand( MOTE_MAC_LINK_CHECK_REQ, 0, 0 );
-            break;
-        }
-        case MLME_TXCW: {
-            // Apply the request
-            LoRaMacFlags.Bits.MlmeReq = 1;
-            queueElement.Request = mlmeRequest->Type;
-            queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
-            queueElement.RestrictCommonReadyToHandle = false;
-            LoRaMacConfirmQueueAdd( &queueElement );
-
-            status = SetTxContinuousWave( mlmeRequest->Req.TxCw.Timeout );
-            break;
-        }
-        case MLME_TXCW_1:
+        if (RegionVerify (LoRaMacRegion, &verify, PHY_NB_JOIN_TRIALS) == false)
         {
-            // Apply the request
-            LoRaMacFlags.Bits.MlmeReq = 1;
-            queueElement.Request = mlmeRequest->Type;
-            queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
-            queueElement.RestrictCommonReadyToHandle = false;
-            LoRaMacConfirmQueueAdd( &queueElement );
-
-            status = SetTxContinuousWave1( mlmeRequest->Req.TxCw.Timeout, mlmeRequest->Req.TxCw.Frequency, mlmeRequest->Req.TxCw.Power );
-            break;
+          // Value not supported, get default
+          getPhy.Attribute = PHY_DEF_NB_JOIN_TRIALS;
+          phyParam = RegionGetPhyParam (LoRaMacRegion, &getPhy);
+          mlmeRequest->Req.Join.NbTrials = (uint8_t) phyParam.Value;
         }
-        default:
-            break;
-    }
 
-    if ( status != LORAMAC_STATUS_OK ) {
-        NodeAckRequested = false;
-        LoRaMacConfirmQueueRemoveLast( );
-        if( LoRaMacConfirmQueueGetCnt( ) == 0 )
-        {
-            LoRaMacFlags.Bits.MlmeReq = 0;
-        }
-    }
+        LoRaMacFlags.Bits.MlmeReq = 1;
+        queueElement.Request = mlmeRequest->Type;
 
-    return status;
+        LoRaMacDevEui = mlmeRequest->Req.Join.DevEui;
+        LoRaMacAppEui = mlmeRequest->Req.Join.AppEui;
+        LoRaMacAppKey = mlmeRequest->Req.Join.AppKey;
+        queueElement.Status = LORAMAC_EVENT_INFO_STATUS_JOIN_FAIL;
+        queueElement.RestrictCommonReadyToHandle = false;
+        LoRaMacConfirmQueueAdd (&queueElement);
+        MaxJoinRequestTrials = mlmeRequest->Req.Join.NbTrials;
+
+        // Reset variable JoinRequestTrials
+        JoinRequestTrials = 0;
+
+        // Setup header information
+        macHdr.Value = 0;
+        macHdr.Bits.MType  = FRAME_TYPE_JOIN_REQ;
+
+        ResetMacParameters ();
+
+        altDr.NbTrials = JoinRequestTrials + 1;
+        LoRaMacParams.ChannelsDatarate = RegionAlternateDr (LoRaMacRegion, &altDr);
+        status = Send (&macHdr, 0, NULL, 0);
+      }
+      break;
+
+    case MLME_LINK_CHECK:
+      {
+        // Apply the request
+        LoRaMacFlags.Bits.MlmeReq = 1;
+        queueElement.Request = mlmeRequest->Type;
+        queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        queueElement.RestrictCommonReadyToHandle = false;
+        LoRaMacConfirmQueueAdd (&queueElement);
+
+        // LoRaMac will send this command piggy-pack
+        status = AddMacCommand (MOTE_MAC_LINK_CHECK_REQ, 0, 0);
+      }
+      break;
+
+    case MLME_TXCW:
+      {
+        // Apply the request
+        LoRaMacFlags.Bits.MlmeReq = 1;
+        queueElement.Request = mlmeRequest->Type;
+        queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        queueElement.RestrictCommonReadyToHandle = false;
+        LoRaMacConfirmQueueAdd (&queueElement);
+
+        status = SetTxContinuousWave (mlmeRequest->Req.TxCw.Timeout);
+      }
+      break;
+
+    case MLME_TXCW_1:
+      {
+        // Apply the request
+        LoRaMacFlags.Bits.MlmeReq = 1;
+        queueElement.Request = mlmeRequest->Type;
+        queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        queueElement.RestrictCommonReadyToHandle = false;
+        LoRaMacConfirmQueueAdd (&queueElement);
+
+        status = SetTxContinuousWave1 (mlmeRequest->Req.TxCw.Timeout, mlmeRequest->Req.TxCw.Frequency, mlmeRequest->Req.TxCw.Power);
+      }
+      break;
+
+    case MLME_DEVICE_TIME:
+      {
+        // Apply the request
+        LoRaMacFlags.Bits.MlmeReq = 1;
+        queueElement.Request = mlmeRequest->Type;
+        queueElement.Status = LORAMAC_EVENT_INFO_STATUS_ERROR;
+        queueElement.RestrictCommonReadyToHandle = false;
+        LoRaMacConfirmQueueAdd (&queueElement);
+
+        // LoRaMac will send this command piggy-pack
+        status = AddMacCommand (MOTE_MAC_DEVICE_TIME_REQ, 0, 0);
+      }
+      break;
+
+    default:
+      break;
+  }
+
+  if ( status != LORAMAC_STATUS_OK ) {
+    NodeAckRequested = false;
+    LoRaMacConfirmQueueRemoveLast( );
+    if( LoRaMacConfirmQueueGetCnt( ) == 0 )
+    {
+      LoRaMacFlags.Bits.MlmeReq = 0;
+    }
+  }
+
+  return status;
 }
 
 LoRaMacStatus_t LoRaMacMcpsRequest( McpsReq_t *mcpsRequest )

@@ -114,6 +114,11 @@ extern bool IsLoRaMacNetworkJoined;
 #define LORA_MAC_PUBLIC_SYNCWORD                    0x34
 
 /*!
+ * Epoch seconds of January the 6th, 1980 at 00:00:00 UTC + 19 leap secoinds
+ */
+#define UNIX_GPS_EPOCH_OFFSET                       315964819
+
+/*!
  * LoRaWAN devices classes definition
  *
  * LoRaWAN Specification V1.0.2, chapter 2.1
@@ -1112,8 +1117,12 @@ typedef struct sMcpsIndication {
      * The downlink counter value for the received frame
      */
     uint32_t DownLinkCounter;
+    /*!
+     * Set if a DeviceTimeAns MAC command was received.
+     */
+    bool DeviceTimeAnsReceived;
+
 #ifdef CONFIG_LWAN
-    bool DevTimeAnsReceived;
     bool LinkCheckAnsReceived;
     bool UplinkNeeded;
 #endif
@@ -1171,6 +1180,54 @@ typedef enum eMlme {
      * soon as possible.
      */
     MLME_SCHEDULE_UPLINK,
+    /*!
+     * Derives the McKEKey from the AppKey or NwkKey.
+     */
+    MLME_DERIVE_MC_KE_KEY,
+    /*!
+     * Derives a Multicast group key pair ( McAppSKey, McNwkSKey ) from McKey
+     */
+    MLME_DERIVE_MC_KEY_PAIR,
+    /*!
+     * Initiates a DeviceTimeReq
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_DEVICE_TIME,
+    /*!
+     * The MAC uses this MLME primitive to indicate a beacon reception
+     * status.
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_BEACON,
+    /*!
+     * Initiate a beacon acquisition. The MAC will search for a beacon.
+     * It will search for XX_BEACON_INTERVAL milliseconds.
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_BEACON_ACQUISITION,
+    /*!
+     * Initiates a PingSlotInfoReq
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_PING_SLOT_INFO,
+    /*!
+     * Initiates a BeaconTimingReq
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_BEACON_TIMING,
+    /*!
+     * Primitive which indicates that the beacon has been lost
+     *
+     * \remark The upper layer is required to switch the device class to ClassA
+     *
+     * LoRaWAN end-device certification
+     */
+    MLME_BEACON_LOST,
 } Mlme_t;
 
 /*!
