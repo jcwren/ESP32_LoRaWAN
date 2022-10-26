@@ -29,8 +29,6 @@ Maintainer: Miguel Luis ( Semtech ), Gregory Cristian ( Semtech ) and Daniel Jae
 #include "LoRaMacConfirmQueue.h"
 #include "region/Region.h"
 
-extern int xprintf (const char *format, ...);
-
 /*!
  * Maximum PHY layer payload size
  */
@@ -1232,7 +1230,6 @@ static void OnRadioRxTimeout( void )
 
 static void OnMacStateCheckTimerEvent( void )
 {
-//	xprintf("OnMacStateCheckTimerEvent\r\n");
     GetPhyParams_t getPhy;
     PhyParam_t phyParam;
     bool noTx = false;
@@ -1901,7 +1898,6 @@ static void ProcessMacCommands( uint8_t *payload, uint8_t macIndex, uint8_t comm
                     //SaveDr();
                     LoRaMacParams.ChannelsTxPower = linkAdrTxPower;
                     LoRaMacParams.ChannelsNbRep = linkAdrNbRep;
-                    //xprintf("ChannelsDatarate:%d ChannelsTxPower:%d,ChannelsNbRep:%d\r\n",LoRaMacParams.ChannelsDatarate,LoRaMacParams.ChannelsTxPower,LoRaMacParams.ChannelsNbRep);
                 }
 
                 // Add the answers to the buffer
@@ -2051,17 +2047,7 @@ static void ProcessMacCommands( uint8_t *payload, uint8_t macIndex, uint8_t comm
 
                     // Compensate time difference between Tx Done time and now
                     gettimeofday (&sysTimeCurrent, NULL);
-                    xprintf ("gpsEpochTime=%d.%d, sysTime=%d.%d, sysTimeCurrent=%d.%d, LastTxSysTime=%d.%d\n",
-                        gpsEpochTime.tv_sec,
-                        gpsEpochTime.tv_usec,
-                        sysTime.tv_sec,
-                        sysTime.tv_usec,
-                        sysTimeCurrent.tv_sec,
-                        sysTimeCurrent.tv_usec,
-                        LastTxSysTime.tv_sec,
-                        LastTxSysTime.tv_usec);
                     sysTime = add_timeval (sysTimeCurrent, sub_timeval (sysTime, LastTxSysTime));
-                    xprintf ("New sysTime=%d.%d\n", sysTime.tv_sec, sysTime.tv_usec);
 
                     // Apply the new system time.
                     settimeofday (&sysTime, NULL);
