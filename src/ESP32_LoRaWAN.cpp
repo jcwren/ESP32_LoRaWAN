@@ -113,8 +113,11 @@ static void OnTxNextPacketTimerEvent (void)
   {
     if (mibReq.Param.IsNetworkJoined == true)
     {
-      deviceState = DEVICE_STATE_SEND;
       NextTx = true;
+      deviceState = DEVICE_STATE_SEND;
+
+      if (lorawanCallbacks.onDeviceStateChange)
+        lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
     }
     else
     {
@@ -130,6 +133,9 @@ static void OnTxNextPacketTimerEvent (void)
         deviceState = DEVICE_STATE_SLEEP;
       else
         deviceState = DEVICE_STATE_CYCLE;
+
+      if (lorawanCallbacks.onDeviceStateChange)
+        lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
     }
   }
 }
@@ -258,6 +264,9 @@ static void MlmeConfirm (MlmeConfirm_t *mlmeConfirm)
             lorawanCallbacks.onJoinSuccess ();
 
           deviceState = DEVICE_STATE_SEND;
+
+          if (lorawanCallbacks.onDeviceStateChange)
+            lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
         }
         else
         {
@@ -304,7 +313,7 @@ static void MlmeIndication (MlmeIndication_t *mlmeIndication)
     case MLME_SCHEDULE_UPLINK :
       OnTxNextPacketTimerEvent ();
         ;
-      
+
     default :
       break;
   }
@@ -416,6 +425,9 @@ void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
   }
   else
     deviceState = DEVICE_STATE_SEND;
+
+  if (lorawanCallbacks.onDeviceStateChange)
+    lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
 }
 
 void LoRaWanClass::join ()
@@ -435,6 +447,9 @@ void LoRaWanClass::join ()
       deviceState = DEVICE_STATE_SLEEP;
     else
       deviceState = DEVICE_STATE_CYCLE;
+
+    if (lorawanCallbacks.onDeviceStateChange)
+      lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
   }
   else
   {
@@ -461,6 +476,9 @@ void LoRaWanClass::join ()
     LoRaMacMibSetRequestConfirm (&mibReq);
 
     deviceState = DEVICE_STATE_SEND;
+
+    if (lorawanCallbacks.onDeviceStateChange)
+      lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
   }
 }
 

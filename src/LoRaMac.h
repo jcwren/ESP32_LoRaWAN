@@ -114,9 +114,9 @@ extern bool IsLoRaMacNetworkJoined;
 #define LORA_MAC_PUBLIC_SYNCWORD                    0x34
 
 /*!
- * Epoch seconds of January the 6th, 1980 at 00:00:00 UTC + 19 leap secoinds
+ * Epoch seconds of January the 6th, 1980 at 00:00:00 UTC - 18 leap seconds
  */
-#define UNIX_GPS_EPOCH_OFFSET                       315964819
+#define UNIX_GPS_EPOCH_OFFSET                       (315964800 - 18)
 
 /*!
  * LoRaWAN devices classes definition

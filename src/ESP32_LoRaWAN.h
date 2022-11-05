@@ -45,6 +45,7 @@ typedef struct lorawanCallbacks_s
   void     (*onSysTimeUpdate) (void);
   uint8_t  (*onGetBatteryLevel) (void);
   float    (*onGetTemperatureLevel) (void);
+  void     (*onDeviceStateChange) (eDeviceState state, const char *func, const int line);
 }
 lorawanCallbacks_t;
 
