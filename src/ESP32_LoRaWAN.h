@@ -27,7 +27,7 @@ enum eDeviceState
   DEVICE_STATE_JOIN,  // 1 -
   DEVICE_STATE_SEND,  // 2 -
   DEVICE_STATE_CYCLE, // 3 -
-  DEVICE_STATE_SLEEP  // 4 -
+  DEVICE_STATE_SLEEP, // 4 -
 };
 
 //
@@ -46,6 +46,7 @@ typedef struct lorawanCallbacks_s
   uint8_t  (*onGetBatteryLevel) (void);
   float    (*onGetTemperatureLevel) (void);
   void     (*onDeviceStateChange) (eDeviceState state, const char *func, const int line);
+  void     (*setDeviceState) (eDeviceState state);
 }
 lorawanCallbacks_t;
 

@@ -114,7 +114,11 @@ static void OnTxNextPacketTimerEvent (void)
     if (mibReq.Param.IsNetworkJoined == true)
     {
       NextTx = true;
-      deviceState = DEVICE_STATE_SEND;
+
+      if (lorawanCallbacks.setDeviceState)
+        lorawanCallbacks.setDeviceState (DEVICE_STATE_SEND);
+      else
+        deviceState = DEVICE_STATE_SEND;
 
       if (lorawanCallbacks.onDeviceStateChange)
         lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
@@ -130,7 +134,14 @@ static void OnTxNextPacketTimerEvent (void)
       mlmeReq.Req.Join.NbTrials = 1;
 
       if (LoRaMacMlmeRequest (&mlmeReq) == LORAMAC_STATUS_OK)
-        deviceState = DEVICE_STATE_SLEEP;
+      {
+        if (lorawanCallbacks.setDeviceState)
+          lorawanCallbacks.setDeviceState (DEVICE_STATE_SLEEP);
+        else
+          deviceState = DEVICE_STATE_SLEEP;
+      }
+      else if (lorawanCallbacks.setDeviceState)
+        lorawanCallbacks.setDeviceState (DEVICE_STATE_CYCLE);
       else
         deviceState = DEVICE_STATE_CYCLE;
 
@@ -263,7 +274,10 @@ static void MlmeConfirm (MlmeConfirm_t *mlmeConfirm)
           if (lorawanCallbacks.onJoinSuccess)
             lorawanCallbacks.onJoinSuccess ();
 
-          deviceState = DEVICE_STATE_SEND;
+          if (lorawanCallbacks.setDeviceState)
+            lorawanCallbacks.setDeviceState (DEVICE_STATE_SEND);
+          else
+            deviceState = DEVICE_STATE_SEND;
 
           if (lorawanCallbacks.onDeviceStateChange)
             lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
@@ -421,8 +435,14 @@ void LoRaWanClass::init (DeviceClass_t classMode, LoRaMacRegion_t region)
     }
 
     lwan_dev_params_update ();
-    deviceState = DEVICE_STATE_JOIN;
+
+    if (lorawanCallbacks.setDeviceState)
+      lorawanCallbacks.setDeviceState (DEVICE_STATE_JOIN);
+    else
+      deviceState = DEVICE_STATE_JOIN;
   }
+  else if (lorawanCallbacks.setDeviceState)
+    lorawanCallbacks.setDeviceState (DEVICE_STATE_SEND);
   else
     deviceState = DEVICE_STATE_SEND;
 
@@ -444,7 +464,14 @@ void LoRaWanClass::join ()
     mlmeReq.Req.Join.NbTrials = 1;
 
     if (LoRaMacMlmeRequest (&mlmeReq) == LORAMAC_STATUS_OK)
-      deviceState = DEVICE_STATE_SLEEP;
+    {
+      if (lorawanCallbacks.setDeviceState)
+        lorawanCallbacks.setDeviceState (DEVICE_STATE_SLEEP);
+      else
+        deviceState = DEVICE_STATE_SLEEP;
+    }
+    else if (lorawanCallbacks.setDeviceState)
+      lorawanCallbacks.setDeviceState (DEVICE_STATE_CYCLE);
     else
       deviceState = DEVICE_STATE_CYCLE;
 
@@ -475,7 +502,10 @@ void LoRaWanClass::join ()
     mibReq.Param.IsNetworkJoined = true;
     LoRaMacMibSetRequestConfirm (&mibReq);
 
-    deviceState = DEVICE_STATE_SEND;
+    if (lorawanCallbacks.setDeviceState)
+      lorawanCallbacks.setDeviceState (DEVICE_STATE_SEND);
+    else
+      deviceState = DEVICE_STATE_SEND;
 
     if (lorawanCallbacks.onDeviceStateChange)
       lorawanCallbacks.onDeviceStateChange (deviceState, __func__, __LINE__);
